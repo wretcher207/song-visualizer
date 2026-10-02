@@ -11,14 +11,18 @@
 ## Rendering
 
 ```bash
-python tools/render.py full                 # renders/<slug>-frames/, then final/<slug>.mp4
-python tools/render.py full --vertical      # renders/<slug>-vertical-frames/, then final/<slug>-vertical.mp4
+python tools/render.py full --detach                # renders/<slug>-frames/, then final/<slug>.mp4
+python tools/render.py wait --minutes 25            # repeat until it exits 0; it prints progress each time
+python tools/render.py full --vertical --detach     # then the vertical, the same way
 ```
 
-Run them one after the other, never together: rendering is CPU-bound, and two at once take longer than one after the
-other. A 4-minute song is roughly 70 to 80 minutes per aspect on 4 workers; more workers rarely help. Disk: 8 to 16 GB
-of PNG frames per aspect. `render.py` waits for the process and counts the frames; it fails loudly on a short render.
-Run long renders in the background and wait for the command to finish, not for a word in its log.
+Always `--detach` a full render. An agent's background commands can be stopped after a time limit (30 minutes was
+seen), a full render runs an hour or more, and when a render's parent process is stopped, HyperFrames cancels the
+render. A detached job is its own process; `status` and `wait` check on it, and `wait` keeps each check under the
+limit. Run the two aspects one after the other, never together: rendering is CPU-bound, and two at once take longer
+than one after the other. A 4-minute song is roughly 70 to 80 minutes per aspect on 4 workers; more workers rarely
+help. Disk: 8 to 16 GB of PNG frames per aspect. The job counts the frames and fails loudly on a short render; never
+judge a render finished from a word in its log.
 
 ## QA: every frame, every time
 

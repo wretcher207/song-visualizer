@@ -14,6 +14,13 @@
         than you thought. Re-encode afterwards: python tools/render.py encode [--vertical]
   python tools/render.py encode [--vertical]
         re-encode final/<slug>[-vertical].mp4 from the frames on disk
+  --detach  (with full or window) start the job as its own process and return at once. Agents' background commands
+        can be stopped after a time limit (30 minutes was seen), and a stopped parent cancels a HyperFrames render, so
+        hour-long renders run detached. The job's output goes to renders/job-<mode>[-vertical].out.
+  python tools/render.py status        every detached job: running or finished, its progress, its last lines
+  python tools/render.py wait [--minutes 25]
+        wait until no detached job is running, up to that long; exit 0 when they're done, 2 if one is still running
+        (call it again). Keep the wait under the agent's background time limit.
 
 Why PNG frames and a separate encode: HyperFrames' own MP4 path captures JPEGs, which darken every level by a few
 steps and smear fine grain; PNG capture is exact. Why it waits on the process and counts frames: a render's log
@@ -21,7 +28,7 @@ says "0 error(s)" long before it finishes, so watching the log for "error" start
 A full 1080p render of a scene at 100 to 200 ms a frame ran 20 to 27 seconds per second of song on 4 CPU workers (a
 4-minute song: about 70 to 80 minutes per aspect); more workers rarely help.
 """
-import argparse, math, pathlib, shutil, subprocess, sys, time
+import argparse, json, math, pathlib, re, shutil, subprocess, sys, time
 
 import numpy as np
 from PIL import Image
@@ -86,9 +93,73 @@ def window(c, start, length, vertical, name, sets, workers):
     return out, mp4
 
 
+def alive(pid):
+    if sys.platform == "win32":
+        p = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True)
+        return str(pid) in p.stdout
+    try:
+        import os
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def detach(argv, job):
+    """Start `python tools/render.py argv` as its own process, outside this one's process tree and console, so it
+    survives the agent's command ending. On Windows that's WMI (a child of this process would go down with it); on
+    macOS and Linux a new session."""
+    out = ROOT / "renders" / f"job-{job}.out"
+    meta = ROOT / "renders" / f"job-{job}.json"
+    args = [sys.executable, str(ROOT / "tools" / "render.py"), *argv]
+    if sys.platform == "win32":
+        # cmd /c gives the job a console of its own (pnpm's shim exits at once without one); ShowWindow 0 hides it
+        cmdline = "cmd /c \"" + " ".join(f'"{x}"' for x in args) + f' > "{out}" 2>&1"'
+        ps = ("$si = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ShowWindow=[uint16]0; "
+              "CreateFlags=[uint32]16}; $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments "
+              "@{CommandLine=$env:VIS_CMD; CurrentDirectory=$env:VIS_DIR; ProcessStartupInformation=$si}; "
+              "Write-Output \"$($r.ReturnValue) $($r.ProcessId)\"")
+        env = {**__import__("os").environ, "VIS_CMD": cmdline, "VIS_DIR": str(ROOT)}
+        p = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, env=env)
+        rv, pid = (p.stdout.split() + ["1", "0"])[:2]
+        if rv != "0":
+            sys.exit(f"couldn't start the detached job: {p.stdout} {p.stderr}")
+        pid = int(pid)
+    else:
+        fh = open(out, "w")
+        pid = subprocess.Popen(args, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT,
+                               start_new_session=True).pid
+    meta.write_text(json.dumps({"pid": pid, "args": argv, "started": time.strftime("%Y-%m-%d %H:%M:%S")}), encoding="utf-8")
+    print(f"started {job} as its own process (pid {pid}); output in renders/job-{job}.out")
+    print("check it with python tools/render.py status, or python tools/render.py wait --minutes 25")
+
+
+def progress():
+    """The newest HyperFrames log's last 'Capturing frame N/M'."""
+    logs = sorted((ROOT / "renders").glob("*.log"), key=lambda p: p.stat().st_mtime)
+    if not logs:
+        return ""
+    tail = logs[-1].read_bytes()[-4000:].decode("utf-8", "replace")
+    m = re.findall(r"Capturing frame (\d+)/(\d+)", tail)
+    return f"{logs[-1].name}: frame {m[-1][0]} of {m[-1][1]}" if m else f"{logs[-1].name}: {tail.strip().splitlines()[-1][:120] if tail.strip() else ''}"
+
+
+def jobs():
+    out = []
+    for meta in sorted((ROOT / "renders").glob("job-*.json")):
+        j = json.loads(meta.read_text(encoding="utf-8"))
+        log = meta.with_suffix(".out")
+        last = [ln for ln in (log.read_text(encoding="utf-8", errors="replace").splitlines() if log.exists() else [])
+                if "Capturing" not in ln and ln.strip()][-3:]
+        out.append((meta.stem[4:], alive(j["pid"]), j, last))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["check", "window", "full", "patch", "encode"])
+    ap.add_argument("mode", choices=["check", "window", "full", "patch", "encode", "status", "wait"])
+    ap.add_argument("--detach", action="store_true")
+    ap.add_argument("--minutes", type=float, default=25)
     ap.add_argument("times", nargs="*", type=float)
     ap.add_argument("--vertical", action="store_true")
     ap.add_argument("--name", default=None)
@@ -102,6 +173,30 @@ def main():
     cwd = ROOT / "vertical" if a.vertical else ROOT
     tag = "-vertical" if a.vertical else ""
     final = ROOT / "final" / f"{c['slug']}{tag}.mp4"
+
+    if a.detach and a.mode in ("full", "window"):
+        argv = [x for x in sys.argv[1:] if x != "--detach"]
+        job = a.mode + tag + (f"-{a.times[0]:g}" if a.mode == "window" else "")
+        detach(argv, job)
+        return
+
+    if a.mode in ("status", "wait"):
+        deadline = time.time() + a.minutes * 60
+        while True:
+            js = jobs()
+            running = [j for j in js if j[1]]
+            if a.mode == "status" or not running or time.time() >= deadline:
+                break
+            time.sleep(30)
+        if not js:
+            print("no detached jobs")
+        for name, run, j, last in js:
+            print(f"{name}: {'RUNNING' if run else 'finished'} (pid {j['pid']}, started {j['started']})")
+            for ln in last:
+                print("   ", ln[:200])
+        if running:
+            print("   ", progress())
+        sys.exit(2 if (a.mode == "wait" and running) else 0)
 
     if a.mode == "check":
         (ROOT / "preview.html").unlink(missing_ok=True)

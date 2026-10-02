@@ -37,6 +37,11 @@ dev harness and tools behind the three an elegy visualizers), generalized to one
 - new_project, check_setup, analyze, build, stills in both aspects, perf, compare, end card (Jost), thumbnails, and
   `render.py check` pass on both songs.
 - `render.py window 0 6`: 144 frames in 2.5 min, encoded, QA clean, preview.html removed afterwards.
+- `render.py --detach`, `status`, `wait` (added after a 30-minute background limit stopped a full test render and
+  HyperFrames cancelled with "render_cancelled_parent_exited"): a detached 2 s window finished on its own, `wait` exited
+  0, preview.html was removed. Windows starts the job through WMI with a hidden console of its own (Start-Process
+  children went down with the launching command; a WMI process without a console exits at once in pnpm's shim);
+  macOS and Linux use a new session (not tested there).
 - `render.py patch`: with a test mark planted at 2.2 to 2.5 s, exactly frames 53 to 59 changed and the other 17
   matched to the pixel. (The first try also changed the horizon row in the first frames after the page loaded: the
   horizon sat at y 669.6. Layout edges are rounded now, and the tool warns about faint differences.)

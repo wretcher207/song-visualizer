@@ -80,7 +80,7 @@ page (`tools/review.py`), publishing it, and reading the marks back. Apply every
 The hardest 10 to 15 seconds, rendered for real with sound:
 
 ```bash
-python tools/render.py window 126 12 --name gateb
+python tools/render.py window 126 12 --name gateb      # a few minutes; add --detach for anything near 20
 python tools/qa.py dev/out/gateb.mp4 --start 126
 ```
 
@@ -99,8 +99,9 @@ accepts the cut, then ask before deleting them (they're large: 8 to 16 GB per as
 - A frame is a pure function of its time: no clocks, no `Math.random`, nothing carried over from the frame before.
   Seeded randomness (`LOOK.rng`, `LOOK.hash`) and per-frame tables only.
 - Never report a check you didn't run. QA means every frame and every sheet looked at; say exactly what was checked.
-- Never wait for a render by watching its log for a word: a log says "0 error(s)" long before it's done. `render.py`
-  waits on the process and counts the frames.
+- Start every full render with `--detach` and check it with `render.py wait --minutes 25`: background commands can
+  be stopped after a time limit, and a stopped parent cancels the render. Never judge a render by watching its log for
+  a word: a log says "0 error(s)" long before it's done. The job counts the frames.
 - Don't render while another render runs, and don't edit a scene a render has loaded and expect the render to see it:
   a fix after the render started is a patch.
 - Keep one current version of each deliverable in `final/`. Superseded cuts go in `final/superseded/`.
