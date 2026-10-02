@@ -66,8 +66,9 @@ dev harness and tools behind the three an elegy visualizers), generalized to one
 
 ## Not done yet
 
-- Not run end to end through a full-length render in a project made by the kit (the full-render path is the same
-  code that rendered the an elegy films, wrapped; the window and patch paths are tested).
+- Full-length render through the kit (a-long-way-back.wav, starter scene, local scratch project): `render.py full
+  --detach` rendered 4,320 frames in 82.1 min and encoded; `qa.py`: no black, no freeze, flash check passed, no
+  one-frame spikes (largest change 0.005); all 36 sheets looked at. The vertical runs the same way next.
 - Not tested on macOS or Linux (paths and Chrome lookup are written for them).
 - Directory review: check the plugin page for the scan result and the reviewer's decision.
 - Icon: `.claude-plugin/icon.svg` (a warm light on a dark horizon, snow), simple placeholder until there's a real still to base it on.
