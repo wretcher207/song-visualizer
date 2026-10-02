@@ -55,5 +55,5 @@ dev harness and tools behind the three an elegy visualizers), generalized to one
 - No GitHub repo yet: creating it public is publishing, so it waits for David's go. Then the plugin directory
   submission (see `second-brain/knowledge/claude-plugin-directory-submission.md`: repo root as the plugin, files under
   256 KiB, every userConfig with a default; there's no userConfig here).
-- No icon (`.claude-plugin/icon.svg`, as Reaper Daemon has).
+- Icon: `.claude-plugin/icon.svg` (a warm light on a dark horizon, snow), simple placeholder until there's a real still to base it on.
 - A real worked example in the README (a short clip or still) once there's one to show.
