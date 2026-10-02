@@ -229,7 +229,7 @@
       for (let i = 0; i < 140; i++) {
         const a = r() * L.TAU;
         const rr = Math.pow(r(), 0.6) * 20;
-        dg.fillStyle = `rgba(0,0,0,${r.range(0.15, 0.6)})`;
+        dg.fillStyle = "rgba(0,0,0," + r.range(0.15, 0.6) + ")";
         dg.fillRect(CELL / 2 + Math.cos(a) * rr, CELL / 2 + Math.sin(a) * rr, r.range(1, 2.5), r.range(1, 2.5));
       }
       dg.globalCompositeOperation = "source-over";
@@ -1024,12 +1024,12 @@
         gl.uniform1i(P.u.uProjOn, 0);
       }
       // with a shadow, every shell twice: the shadows on the snow first, then the flakes over them
-      for (const pass of sw ? [1, 0] : [0]) {
-        gl.uniform1i(P.u.uShadowOn, pass);
+      for (const shadowStep of sw ? [1, 0] : [0]) {
+        gl.uniform1i(P.u.uShadowOn, shadowStep);
         for (let si = 0; si < shells.length; si++) {
           const s = shells[si];
           if (!s.count) continue;
-          if (pass === 1 && sw.shells && !sw.shells.includes(si)) continue; // shells too far for a shadow to show
+          if (shadowStep === 1 && sw.shells && !sw.shells.includes(si)) continue; // shells too far for a shadow to show
           gl.uniform3fv(P.u.uCenter, s.center);
           gl.uniform3fv(P.u.uSize, s.size);
           gl.uniform1f(P.u.uSizeK, s.sizeK);
