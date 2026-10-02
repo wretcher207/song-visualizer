@@ -22,6 +22,10 @@ its own copy of the tools; run every project command from the project folder.
 
 ## 0. Set up
 
+Everything here runs on the person's own computer: Python, ffmpeg, Node and an hour or more of rendering. If this
+session can't run shell commands (chat on claude.ai or the mobile app), say so before asking for the brief: the
+workflow needs Claude Code on the computer that holds the song. Don't start a project you can't build.
+
 ```bash
 python <skill>/scripts/new_project.py <project-dir> --song <song.wav> --title "the title" --artist "the artist"
 cd <project-dir>
