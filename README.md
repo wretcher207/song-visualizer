@@ -55,6 +55,8 @@ And taste. The tool can push you toward a strong brief, but the result is only a
 
 Everything runs on your machine. The tools are plain Python and JavaScript, and they read your WAV and write files in your project folder. pnpm downloads HyperFrames, and HyperFrames downloads a headless Chrome the first time you render.
 
+The tools don't read credentials or API keys, and they don't read environment variables except to start a long render in the background, where they set HYPERFRAMES_RENDER_DETACHED so HyperFrames keeps going after the command that started it exits. The only network calls the review pages make are the film player fetching the page's own video parts and, when the page is published as a Claude artifact, saving your marks through Claude's artifact storage.
+
 Review pages are only published if you ask Claude to publish them as Claude artifacts (private to you until you share them). Otherwise they stay local files. Your song is never uploaded by these tools, but a review page you publish carries the clips and stills on it, and the clips have the song's audio in them. Claude Code itself talks to Anthropic like any Claude Code session.
 
 ## Want one made?

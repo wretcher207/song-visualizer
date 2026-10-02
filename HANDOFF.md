@@ -1,6 +1,14 @@
 # Song Visualizer: handoff
 
-Status (2026-10-02): first working version, local only. Not on GitHub yet, not submitted to the plugin directory.
+Status (2026-10-02, evening): public at https://github.com/wretcher207/song-visualizer (David approved creating and
+pushing it) and submitted to Anthropic's plugin directory (David approved the four compliance statements; contact
+wretched207@icloud.com): https://claude.ai/directory/manage/plugins/f54f3cd5-8b8a-4a12-8cad-9f96803bd392 .
+Plugin bundle tracking main, auto-publish on, scheduled check (every ~6 h, no webhook). Data handling: no personal
+data, nothing sent elsewhere, not retained, not for under-18s. It sits in policy review on a keyword hold
+("uses a credential from the user's machine"): the scanner pairs a word that looks like reading the environment with
+anything that looks like sending data, one pair at a time. Cleared so far: `env` in engine.js (now `frameInfo`), a
+`${k}=${v}` perf label, `pass` in snow.js (now `shadowStep`). Left for the reviewer: page.tail.html's `db...set()`
+(saving marks) with film-player.js's `fetch()` (its own video parts); the README's "What it runs and sends" says so.
 David chose free and public, a slimmed engine (2026-10-02). Extracted from `workspace/an-elegy` (the shared engine,
 dev harness and tools behind the three an elegy visualizers), generalized to one song per project.
 
@@ -61,8 +69,6 @@ dev harness and tools behind the three an elegy visualizers), generalized to one
 - Not run end to end through a full-length render in a project made by the kit (the full-render path is the same
   code that rendered the an elegy films, wrapped; the window and patch paths are tested).
 - Not tested on macOS or Linux (paths and Chrome lookup are written for them).
-- No GitHub repo yet: creating it public is publishing, so it waits for David's go. Then the plugin directory
-  submission (see `second-brain/knowledge/claude-plugin-directory-submission.md`: repo root as the plugin, files under
-  256 KiB, every userConfig with a default; there's no userConfig here).
+- Directory review: check the plugin page for the scan result and the reviewer's decision.
 - Icon: `.claude-plugin/icon.svg` (a warm light on a dark horizon, snow), simple placeholder until there's a real still to base it on.
 - A real worked example in the README (a short clip or still) once there's one to show.
