@@ -1,0 +1,27 @@
+{
+  "name": "song-visualizer",
+  "displayName": "Song Visualizer",
+  "version": "0.1.0",
+  "description": "Make a music visualizer drawn entirely in code, cued to your song's measured hits, rendered with HyperFrames, with review gates and a check of every frame.",
+  "author": {
+    "name": "Dead Pixel Design",
+    "url": "https://www.deadpixeldesign.com"
+  },
+  "homepage": "https://github.com/wretcher207/song-visualizer",
+  "repository": "https://github.com/wretcher207/song-visualizer",
+  "license": "MIT",
+  "documentationUrl": "https://github.com/wretcher207/song-visualizer#readme",
+  "supportUrl": "https://github.com/wretcher207/song-visualizer/issues",
+  "privacyPolicyUrl": "https://github.com/wretcher207/song-visualizer#what-it-runs-and-sends",
+  "termsOfServiceUrl": "https://github.com/wretcher207/song-visualizer/blob/main/LICENSE",
+  "keywords": [
+    "music video",
+    "visualizer",
+    "animation",
+    "hyperframes",
+    "generative art",
+    "canvas",
+    "webgl",
+    "audio analysis"
+  ]
+}

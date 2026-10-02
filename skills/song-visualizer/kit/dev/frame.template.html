@@ -1,0 +1,138 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>frame</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #111;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      // The canvas comes first so FILM.attach reads its size: ?aspect=v gives the 1080x1920 frame.
+      (function () {
+        const q = new URLSearchParams(location.search);
+        const v = q.get("aspect") === "v";
+        const c = document.createElement("canvas");
+        c.id = "stage";
+        c.width = v ? 1080 : 1920;
+        c.height = v ? 1920 : 1080;
+        document.body.appendChild(c);
+        window.FILM_BASE = "../"; // assets (FILM.asset) resolve from the project's root
+      })();
+    </script>
+__SCRIPTS__
+    <script>
+      // Dev harness (generated from shared/dev/frame.template.html by tools/sync.py; do not edit the copy).
+      //   frame.html?t=12.5                       one full frame at global time t
+      //   frame.html?strip=12.0,13.0,12,4         12 frames from 12.0 s to 13.0 s in a 4-column grid (motion check)
+      //     &crop=x,y,w,h                         each tile shows that region of the frame, scaled up
+      //   frame.html?perf=10,20,40                ms per frame over 40 frames (each one flushed to the screen)
+      //   frame.html?seq=90,30                    render 90 s then 30 s and show the last (order-independence test)
+      //   add &aspect=v for the vertical frame
+      const q = new URLSearchParams(location.search);
+      const stage = document.getElementById("stage");
+      const errors = [];
+      window.addEventListener("error", (e) => errors.push(e.message));
+      const run = () => { try {
+        FILM.attach(stage);
+        const ctx = stage.getContext("2d");
+        const split = {};
+        if (q.has("split")) {
+          // per-stage times: each FILM.mark flushes (its callback) and charges the time since the last mark
+          let last = 0;
+          FILM.mark = (name, flush) => {
+            if (flush) flush();
+            const now = performance.now();
+            if (name !== "start") split[name] = (split[name] || 0) + (now - last);
+            last = now;
+          };
+        }
+        if (q.has("perf")) {
+          const [t0, t1, n] = q.get("perf").split(",").map(Number);
+          FILM.render(t0, true); // warm-up (init, shader compile)
+          ctx.getImageData(0, 0, 1, 1);
+          for (const k in split) delete split[k];
+          const times = [];
+          for (let i = 0; i < n; i++) {
+            const t = t0 + ((t1 - t0) * i) / Math.max(1, n - 1);
+            const s = performance.now();
+            FILM.render(t, true); // true: skip the redraw guard, every sample draws
+            ctx.getImageData(0, 0, 1, 1); // dev only: wait for the GPU so the time is the whole frame
+            times.push(performance.now() - s);
+          }
+          const worstAt = t0 + ((t1 - t0) * times.indexOf(Math.max(...times))) / Math.max(1, n - 1);
+          times.sort((a, b) => a - b);
+          const avg = times.reduce((a, b) => a + b, 0) / times.length;
+          const pre = document.createElement("pre");
+          pre.id = "perf";
+          const gpu = (window.SNOW_INFO && SNOW_INFO.renderer) || "no webgl";
+          const parts = Object.entries(split)
+            .map(([k, v]) => `${k}=${(v / n).toFixed(1)}`)
+            .join(" ");
+          pre.textContent = `PERF avg=${avg.toFixed(1)}ms median=${times[times.length >> 1].toFixed(1)}ms p90=${times[Math.floor(times.length * 0.9)].toFixed(1)}ms max=${times[times.length - 1].toFixed(1)}ms (at ${worstAt.toFixed(2)} s) n=${n} gpu=${gpu}` + (parts ? `
+SPLIT ${parts}` : "");
+          document.body.appendChild(pre);
+        } else if (q.has("strip")) {
+          const [t0, t1, n, cols] = q.get("strip").split(",").map(Number);
+          // &crop=x,y,w,h: each tile shows that region of the frame, scaled up to the tile (walk cycles)
+          const crop = q.has("crop") ? q.get("crop").split(",").map(Number) : null;
+          const rows = Math.ceil(n / cols);
+          const cw = Math.floor(1920 / cols);
+          const ch = crop ? Math.round((cw * crop[3]) / crop[2]) : Math.round((cw * stage.height) / stage.width);
+          const grid = document.createElement("canvas");
+          grid.width = 1920;
+          grid.height = ch * rows;
+          const g = grid.getContext("2d");
+          g.fillStyle = "#000";
+          g.fillRect(0, 0, grid.width, grid.height);
+          g.font = "600 20px sans-serif";
+          for (let i = 0; i < n; i++) {
+            const t = n === 1 ? t0 : t0 + ((t1 - t0) * i) / (n - 1);
+            FILM.render(t, true);
+            const x = (i % cols) * cw;
+            const y = Math.floor(i / cols) * ch;
+            if (crop) g.drawImage(stage, crop[0], crop[1], crop[2], crop[3], x, y, cw, ch);
+            else g.drawImage(stage, x, y, cw, ch);
+            if (!q.has("clean")) {
+              g.fillStyle = "rgba(0,0,0,0.6)";
+              g.fillRect(x, y, 84, 26);
+              g.fillStyle = "#ff0";
+              g.fillText(t.toFixed(3), x + 6, y + 20);
+            }
+          }
+          stage.replaceWith(grid);
+          document.body.style.height = grid.height + "px";
+        } else if (q.has("seq")) {
+          // render several times in this order and show the last: a frame must not depend on what came before
+          for (const t of q.get("seq").split(",").map(Number)) FILM.render(t, true);
+        } else {
+          FILM.render(Number(q.get("t") || 0), true);
+        }
+      } catch (e) {
+        errors.push(String(e && e.stack ? e.stack : e));
+      }
+      };
+      // scenes that load images hold the first render until they are decoded
+      (FILM.ready ? FILM.ready() : Promise.resolve()).then(run).then(showErrors);
+      function showErrors() {
+      if (errors.length) {
+        const pre = document.createElement("pre");
+        pre.id = "errors";
+        pre.style.cssText =
+          "position:fixed;left:0;top:0;right:0;margin:0;padding:16px;background:#b00;color:#fff;font:20px monospace;white-space:pre-wrap;z-index:9";
+        pre.textContent = "ERROR\n" + errors.join("\n");
+        document.body.appendChild(pre);
+      }
+      }
+    </script>
+  </body>
+</html>

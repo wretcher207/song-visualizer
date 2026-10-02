@@ -1,0 +1,15 @@
+{
+  "name": "song-visualizer",
+  "description": "Song Visualizer: code-drawn music videos cued to the song, from Dead Pixel Design.",
+  "owner": {
+    "name": "Dead Pixel Design",
+    "url": "https://www.deadpixeldesign.com"
+  },
+  "plugins": [
+    {
+      "name": "song-visualizer",
+      "source": "./",
+      "description": "Make a music visualizer drawn entirely in code, cued to your song's measured hits, rendered with HyperFrames."
+    }
+  ]
+}

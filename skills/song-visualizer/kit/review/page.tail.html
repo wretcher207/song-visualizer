@@ -1,0 +1,175 @@
+<div class="lightbox" id="lightbox" hidden>
+  <figure>
+    <button type="button" id="lb-close">Close</button>
+    <img id="lb-img" alt="">
+    <figcaption id="lb-cap"></figcaption>
+  </figure>
+</div>
+
+<script>
+(() => {
+  const LABELS = { test: [["ok", "Looks right"], ["work", "Needs work"]], call: [["ok", "Agree"], ["work", "Change it"]] };
+  const state = {};      // id -> { verdict: "" | a choice's value, note: "" }
+  const ui = {};         // id -> { buttons: {value: button}, note, save, chip }
+  let db = null;
+  let writable = false;
+  const inflight = {}, again = {}, timers = {};
+  const choicesOf = (card) => card.dataset.review === "choice"
+    ? card.dataset.choices.split("|").map((c) => c.split(":"))
+    : LABELS[card.dataset.review];
+
+  // build each card's review bar
+  document.querySelectorAll("[data-review]").forEach((card) => {
+    const id = card.id;
+    state[id] = { verdict: "", note: "" };
+    const bar = document.createElement("div");
+    bar.className = "review";
+    bar.innerHTML =
+      '<div class="verdict" role="group"></div>' +
+      '<label class="note"><span>Note for Claude</span><textarea rows="2" placeholder="Optional"></textarea></label>' +
+      '<p class="save" aria-live="polite"></p>';
+    const group = bar.querySelector(".verdict");
+    group.setAttribute("aria-label", "Your call on " + card.dataset.title);
+    const buttons = {};
+    for (const [value, text] of choicesOf(card)) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "v " + (value === "work" ? "work" : "ok"); b.textContent = text; b.id = id + "-" + value;
+      b.setAttribute("aria-pressed", "false"); b.disabled = true;
+      b.addEventListener("click", () => { state[id].verdict = state[id].verdict === value ? "" : value; paint(id); save(id); });
+      group.appendChild(b);
+      buttons[value] = b;
+    }
+    const note = bar.querySelector("textarea");
+    note.id = id + "-note"; note.disabled = true;
+    card.appendChild(bar);
+    ui[id] = { buttons, labels: Object.fromEntries(choicesOf(card)), note, save: bar.querySelector(".save"), chip: document.querySelector('[data-chip="' + id + '"]'), pick: document.querySelector('[data-pick="' + id + '"]') };
+    note.addEventListener("input", () => {
+      state[id].note = note.value;
+      clearTimeout(timers[id]);
+      timers[id] = setTimeout(() => save(id), 1200);
+    });
+    note.addEventListener("blur", () => {
+      if (timers[id]) { clearTimeout(timers[id]); timers[id] = null; save(id); }
+    });
+  });
+
+  function paint(id) {
+    const s = state[id], u = ui[id];
+    for (const [value, b] of Object.entries(u.buttons)) b.setAttribute("aria-pressed", String(s.verdict === value));
+    if (u.chip) u.chip.dataset.state = s.verdict === "" ? "" : s.verdict === "work" ? "work" : "ok";
+    if (u.pick) u.pick.textContent = s.verdict && s.verdict !== "work" ? ": " + u.labels[s.verdict].toLowerCase() : "";
+    if (document.activeElement !== u.note && u.note.value !== s.note) u.note.value = s.note;
+  }
+
+  function setEnabled(on) {
+    Object.values(ui).forEach((u) => { Object.values(u.buttons).forEach((b) => { b.disabled = !on; }); u.note.disabled = !on; });
+  }
+
+  function banner(text) {
+    const b = document.getElementById("banner");
+    b.textContent = text; b.hidden = !text;
+  }
+
+  // Opened as a plain file (not a published Claude artifact): marks live in this browser, and a button copies them as
+  // JSON to paste back to Claude.
+  const KEY = "review-marks:" + location.pathname;
+  let localMode = false;
+  function local() {
+    localMode = true;
+    try { Object.assign(state, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch { /* storage blocked: marks last until reload */ }
+    Object.keys(ui).forEach(paint);
+    setEnabled(true);
+    banner("Marks save in this browser only. When you're done, press Copy my marks and paste them to Claude.");
+    const box = document.getElementById("export");
+    if (box) box.hidden = false;
+  }
+  function exportMarks() {
+    const out = {};
+    for (const [id, s] of Object.entries(state)) if (s.verdict || s.note) out[id] = { verdict: s.verdict, note: s.note };
+    return JSON.stringify(out, null, 1);
+  }
+  const exportBtn = document.getElementById("export-copy");
+  if (exportBtn) exportBtn.addEventListener("click", async () => {
+    const text = exportMarks();
+    const area = document.getElementById("export-text");
+    area.value = text; area.hidden = false; area.select();
+    try { await navigator.clipboard.writeText(text); exportBtn.textContent = "Copied"; } catch { exportBtn.textContent = "Select and copy the text below"; }
+  });
+
+  async function save(id) {
+    if (localMode) {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); ui[id].save.textContent = "Saved in this browser"; }
+      catch { ui[id].save.textContent = "This browser won't store it: copy your marks before you close the page"; }
+      return;
+    }
+    if (!db || !writable) return;
+    if (inflight[id]) { again[id] = true; return; }
+    inflight[id] = true;
+    ui[id].save.textContent = "Saving";
+    const body = { verdict: state[id].verdict, note: state[id].note, at: Date.now() };
+    try {
+      await db.doc("reviews/" + id).set(body);
+      ui[id].save.textContent = "Saved";
+    } catch (e) {
+      const code = e && e.code;
+      if (code === "unavailable") {
+        await new Promise((r) => setTimeout(r, 600 + Math.random() * 900));
+        try { await db.doc("reviews/" + id).set(body); ui[id].save.textContent = "Saved"; }
+        catch { ui[id].save.textContent = "Couldn't save. Try again in a moment."; }
+      } else if (code === "invalid_argument" || code === "not_granted" || code === "revoked") {
+        writable = false; setEnabled(false);
+        ui[id].save.textContent = "Couldn't save.";
+        banner("This view can't save marks. Open the page from your Claude artifacts while signed in.");
+      } else {
+        ui[id].save.textContent = "Couldn't save. Try again in a moment.";
+      }
+    } finally {
+      inflight[id] = false;
+      if (again[id]) { again[id] = false; save(id); }
+    }
+  }
+
+  (async () => {
+    const use = window.claude && window.claude.use ? window.claude.use.bind(window.claude) : null;
+    try { db = use ? await use("db") : null; } catch { db = null; }
+    if (!db) { local(); return; }
+    writable = true;
+    try {
+      const user = await use("user");
+      if (user && (await user.can("data.write")) === false) {
+        writable = false;
+        banner("You can see the marks here but not change them.");
+      }
+    } catch { /* not told: keep the controls */ }
+    db.collection("reviews").onSnapshot((snap) => {
+      snap.docs.forEach((d) => {
+        if (!d.exists || !state[d.id]) return;
+        const v = d.data() || {};
+        state[d.id].verdict = typeof v.verdict === "string" && ui[d.id].buttons[v.verdict] ? v.verdict : "";
+        if (document.activeElement !== ui[d.id].note) state[d.id].note = typeof v.note === "string" ? v.note : "";
+        paint(d.id);
+      });
+    }, () => { writable = false; setEnabled(false); banner("Saving stopped in this view. Reload the page to pick it up again."); });
+    setEnabled(writable);
+  })();
+
+  // stills open full size
+  const lb = document.getElementById("lightbox"), lbImg = document.getElementById("lb-img"), lbCap = document.getElementById("lb-cap");
+  let opener = null;
+  const close = () => { lb.hidden = true; lbImg.removeAttribute("src"); if (opener) opener.focus(); };
+  document.querySelectorAll(".zoom").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      opener = btn;
+      const fig = btn.closest("figure");
+      lbImg.src = btn.dataset.full;
+      lbImg.alt = btn.querySelector("img").alt;
+      lbCap.textContent = fig && fig.querySelector("figcaption") ? fig.querySelector("figcaption").textContent : "";
+      lb.hidden = false;
+      document.getElementById("lb-close").focus();
+    });
+  });
+  document.getElementById("lb-close").addEventListener("click", close);
+  lb.addEventListener("click", (e) => { if (e.target === lb) close(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !lb.hidden) close(); });
+})();
+</script>

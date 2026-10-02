@@ -1,0 +1,73 @@
+# The full build, renders and QA
+
+## Before the render
+
+1. **Motion strips across every cue:** `python dev/shot.py --out strips --strip T-1 T+2 12` for each cue in
+   `lib/cues.js`. Things move on the cue, nothing pops, nothing jumps. Contrast-stretch a strip if a gradient might be
+   banding.
+2. **Frame time:** `python dev/shot.py --perf` across the heaviest stretch. Under 250 ms a frame.
+3. **Check:** `python tools/render.py check` (and `--vertical`). Passes, no errors.
+
+## Rendering
+
+```bash
+python tools/render.py full                 # renders/<slug>-frames/, then final/<slug>.mp4
+python tools/render.py full --vertical      # renders/<slug>-vertical-frames/, then final/<slug>-vertical.mp4
+```
+
+Run them one after the other, never together: rendering is CPU-bound, and two at once take longer than one after the
+other. A 4-minute song is roughly 70 to 80 minutes per aspect on 4 workers; more workers rarely help. Disk: 8 to 16 GB
+of PNG frames per aspect. `render.py` waits for the process and counts the frames; it fails loudly on a short render.
+Run long renders in the background and wait for the command to finish, not for a word in its log.
+
+## QA: every frame, every time
+
+```bash
+python tools/qa.py final/<slug>.mp4
+```
+
+The report lists black frames, freezes, the flash check (WCAG 2.3.1), one-frame spikes, and writes contact sheets of
+every frame. Then:
+
+1. **Read the report.** Any one-frame spike is a bug even if the flash check passed: something drew for a frame that
+   shouldn't have (a shape behind the camera, a layer missing). Find it with the frame numbers, fix the scene, patch.
+2. **Look at every contact sheet**, start to finish. You're looking for a cut-off subject, a pop, a frame that
+   doesn't belong, anything readable that shouldn't be, the end card clipped. Write down what each stretch shows;
+   that's your evidence that you looked.
+3. Do it again for the vertical.
+
+## Fixing without re-rendering
+
+A fix to a stretch of the film doesn't need the whole render again:
+
+```bash
+python tools/render.py patch START LEN      # LEN covering the frames the fix changes, plus a little either side
+python tools/render.py encode               # then QA the new master again
+```
+
+It renders that window on one worker, compares it with the full render frame by frame, copies in only the frames that
+changed (backing up the old ones), and tells you how many matched to the pixel. Expect the frames you meant to change
+and no others. If frames outside the fix changed, or changed only faintly, see "Rules that keep every frame exact"
+in `engine.md`. Patch the vertical the same way (`--vertical`); its changed frames can differ from the 16:9's.
+
+If the fix landed while a render was already running, that render has the old code: let it finish, then patch it.
+
+## Deliverables
+
+```bash
+python tools/deliver.py                     # final/<slug>-share.mp4 (full size, 9 Mbps) and -phone.mp4 (under 29 MB)
+python tools/deliver.py --vertical
+python tools/thumbnail.py 190 "THE" "TITLE" --final
+python tools/thumbnail.py 190 "THE TITLE" --vertical --size 130 --top 170 --final
+```
+
+- Look at the phone copy at full pixel size in a few busy frames (grain and snow block first).
+- Thumbnails: pick a frame that reads at the size a feed shows it (look at the `-12pct` and `-phone` copies). Never
+  crop the subject to fill the frame; at most a 1.15x punch-in. On a pale frame use `--ink dark`. The vertical cover
+  keeps its title clear of the right-hand buttons and the bottom caption area.
+
+## The cut page and cleanup
+
+Build the cut page (see `gates.md`): both films streamed, stills of each part, the thumbnail and cover. When the person
+accepts it, ask before clearing `renders/` (the frames are the only way to patch without a full re-render, so they go
+only once the cut is accepted, and to the Recycle Bin or Trash rather than a hard delete).
