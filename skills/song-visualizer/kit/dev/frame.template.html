@@ -76,7 +76,7 @@ __SCRIPTS__
           pre.id = "perf";
           const gpu = (window.SNOW_INFO && SNOW_INFO.renderer) || "no webgl";
           const parts = Object.entries(split)
-            .map(([k, v]) => `${k}=${(v / n).toFixed(1)}`)
+            .map(([k, v]) => `${k}: ${(v / n).toFixed(1)}`)
             .join(" ");
           pre.textContent = `PERF avg=${avg.toFixed(1)}ms median=${times[times.length >> 1].toFixed(1)}ms p90=${times[Math.floor(times.length * 0.9)].toFixed(1)}ms max=${times[times.length - 1].toFixed(1)}ms (at ${worstAt.toFixed(2)} s) n=${n} gpu=${gpu}` + (parts ? `
 SPLIT ${parts}` : "");

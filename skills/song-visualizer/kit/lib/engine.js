@@ -1,22 +1,22 @@
 // Film engine: one canvas, one global clock. Scenes register with FILM.scene(name, def) and the timeline (timeline.js) says
 // which scene owns each moment.
 //
-// Scene contract:
+// Scene contract (frameInfo: the per-frame object every scene hook receives as an argument):
 //   FILM.scene("name", {
-//     layout(env)          optional, runs once before init: returns positions for the current frame size
-//                          (env.W x env.H, env.vertical). The result is env.layouts[name] and draw's 4th arg.
-//     init(env, lay)       optional, runs once before the first draw (precompute geometry, canvases)
-//     draw(ctx, t, env, lay)  draw a FULL env.W x env.H frame for GLOBAL time t (seconds)
+//     layout(frameInfo)          optional, runs once before init: returns positions for the current frame size
+//                          (frameInfo.W x frameInfo.H, frameInfo.vertical). The result is frameInfo.layouts[name] and draw's 4th arg.
+//     init(frameInfo, lay)       optional, runs once before the first draw (precompute geometry, canvases)
+//     draw(ctx, t, frameInfo, lay)  draw a FULL frameInfo.W x frameInfo.H frame for GLOBAL time t (seconds)
 //   })
-// Rules: deterministic (LOOK.rng / LOOK.hash, env.f for the frame number, env.b for boil), no clocks,
-// no Math.random. A scene may draw another scene nested: env.drawScene("name", ctx, t).
+// Rules: deterministic (LOOK.rng / LOOK.hash, frameInfo.f for the frame number, frameInfo.b for boil), no clocks,
+// no Math.random. A scene may draw another scene nested: frameInfo.drawScene("name", ctx, t).
 (function (global) {
   const L = global.LOOK;
   const scenes = {};
   const inited = new Set();
   const FILM = { scenes, timeline: [], duration: 0, fps: 24 };
 
-  const env = {
+  const frameInfo = {
     W: L.W,
     H: L.H,
     vertical: false,
@@ -28,7 +28,7 @@
     drawScene,
     layouts: {},
     segment: null,
-    at, // env.at(table, t): per-frame table sampled at t, linear between frames
+    at, // frameInfo.at(table, t): per-frame table sampled at t, linear between frames
   };
 
   FILM.scene = function (name, def) {
@@ -45,11 +45,11 @@
 
   function placeholder(ctx, name, t) {
     ctx.fillStyle = "#26262b";
-    ctx.fillRect(0, 0, env.W, env.H);
+    ctx.fillRect(0, 0, frameInfo.W, frameInfo.H);
     ctx.fillStyle = "#9a9aa5";
     ctx.font = "600 64px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(`[${name}]  t=${t.toFixed(2)}`, env.W / 2, env.H / 2);
+    ctx.fillText(`[${name}]  t=${t.toFixed(2)}`, frameInfo.W / 2, frameInfo.H / 2);
   }
 
   function drawScene(name, ctx, t) {
@@ -60,14 +60,14 @@
     }
     if (!inited.has(name)) {
       inited.add(name);
-      env.layouts[name] = s.layout ? s.layout(env) : {};
-      if (s.init) s.init(env, env.layouts[name]);
+      frameInfo.layouts[name] = s.layout ? s.layout(frameInfo) : {};
+      if (s.init) s.init(frameInfo, frameInfo.layouts[name]);
     }
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
     ctx.filter = "none";
-    s.draw(ctx, t, env, env.layouts[name]);
+    s.draw(ctx, t, frameInfo, frameInfo.layouts[name]);
     ctx.restore();
   }
 
@@ -104,9 +104,9 @@
     L.soft2d = /swiftshader|llvmpipe|software|none/i.test(FILM.renderer);
     ctx = canvas.getContext("2d", { willReadFrequently: L.soft2d });
     L.setSize(canvas.width, canvas.height);
-    env.W = canvas.width;
-    env.H = canvas.height;
-    env.vertical = canvas.height > canvas.width;
+    frameInfo.W = canvas.width;
+    frameInfo.H = canvas.height;
+    frameInfo.vertical = canvas.height > canvas.width;
   };
 
   // Redraw guard. A HyperFrames render calls FILM.render about six times per captured frame (the
@@ -158,21 +158,21 @@
     const f = Math.round(t * FILM.fps);
     if (f === lastF && !force) return;
     lastF = f;
-    env.t = t;
-    env.f = f;
-    env.fps = FILM.fps;
+    frameInfo.t = t;
+    frameInfo.f = f;
+    frameInfo.fps = FILM.fps;
     // Boil on the frame number, strict twos. (GSAP rounds the clock to 1e-6 s, so a boil keyed on
     // floor(t * 12) would hold 3-1-2 frames; rounding to the frame first gives a clean 2-2-2.)
-    env.b = Math.floor(f / 2);
+    frameInfo.b = Math.floor(f / 2);
     const seg = segmentAt(t);
-    env.segment = seg;
+    frameInfo.segment = seg;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
     ctx.filter = "none";
     FILM.mark("start");
     drawScene(seg.name, ctx, t);
-    L.applyGrain(ctx, env.b, seg.grain === undefined ? 0.12 : seg.grain);
+    L.applyGrain(ctx, frameInfo.b, seg.grain === undefined ? 0.12 : seg.grain);
     FILM.mark("grain", () => ctx.getImageData(0, 0, 1, 1));
   };
 
@@ -219,6 +219,6 @@
   FILM.mark = function () {};
 
   FILM.segmentAt = segmentAt;
-  FILM.env = env;
+  FILM.frameInfo = frameInfo;
   global.FILM = FILM;
 })(window);
