@@ -54,7 +54,9 @@ def run_render(args, cwd, log, want, out):
         shutil.rmtree(out)
     t0 = time.time()
     with open(log, "w", encoding="utf-8", errors="replace") as fh:
-        p = subprocess.run(project.pnpm() + ["render"] + args, cwd=cwd, stdout=fh, stderr=subprocess.STDOUT)
+        # no input, ever: pnpm asks questions on a fresh install when it can (it hangs a detached job forever)
+        p = subprocess.run(project.pnpm() + ["render"] + args, cwd=cwd, stdin=subprocess.DEVNULL, stdout=fh,
+                           stderr=subprocess.STDOUT)
     took = time.time() - t0
     got = len(list(out.glob("*.png"))) if out.exists() else 0
     if p.returncode != 0 or got != want:
@@ -205,7 +207,7 @@ def main():
     if a.mode == "check":
         (ROOT / "preview.html").unlink(missing_ok=True)
         build()
-        p = subprocess.run(project.pnpm() + ["check", "--timeout", "90000"], cwd=cwd)
+        p = subprocess.run(project.pnpm() + ["check", "--timeout", "90000"], cwd=cwd, stdin=subprocess.DEVNULL)
         sys.exit(p.returncode)
 
     if a.mode == "window":

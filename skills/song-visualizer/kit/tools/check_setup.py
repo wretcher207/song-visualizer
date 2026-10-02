@@ -49,7 +49,7 @@ try:
 except SystemExit:
     pass
 if "--render" in sys.argv and pn:
-    p = subprocess.run(project.pnpm() + ["--version"], capture_output=True, text=True)
+    p = subprocess.run(project.pnpm() + ["--version"], capture_output=True, text=True, stdin=subprocess.DEVNULL)
     say(p.returncode == 0, f"HyperFrames {p.stdout.strip() or p.stderr.strip()[:200]}", "see the error above")
 print("\nready" if ok else "\nfix the MISSING lines above, then run this again")
 sys.exit(0 if ok else 1)
