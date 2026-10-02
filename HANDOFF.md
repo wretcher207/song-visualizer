@@ -41,7 +41,9 @@ dev harness and tools behind the three an elegy visualizers), generalized to one
   HyperFrames cancelled with "render_cancelled_parent_exited"): a detached 2 s window finished on its own, `wait` exited
   0, preview.html was removed. Windows starts the job through WMI with a hidden console of its own (Start-Process
   children went down with the launching command; a WMI process without a console exits at once in pnpm's shim);
-  macOS and Linux use a new session (not tested there).
+  macOS and Linux use a new session (not tested there). HyperFrames also watches every ancestor process and cancels
+  if one exits (`captureRenderAncestors`); under WMI the provider host exits about 88 s in, so detached jobs set
+  HYPERFRAMES_RENDER_DETACHED=1, its own switch for this. A detached 10 s window then ran 4.2 min to the end.
 - `render.py patch`: with a test mark planted at 2.2 to 2.5 s, exactly frames 53 to 59 changed and the other 17
   matched to the pixel. (The first try also changed the horizon row in the first frames after the page loaded: the
   horizon sat at y 669.6. Layout edges are rounded now, and the tool warns about faint differences.)

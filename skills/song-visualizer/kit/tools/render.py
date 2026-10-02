@@ -112,9 +112,12 @@ def detach(argv, job):
     out = ROOT / "renders" / f"job-{job}.out"
     meta = ROOT / "renders" / f"job-{job}.json"
     args = [sys.executable, str(ROOT / "tools" / "render.py"), *argv]
+    # HyperFrames watches every process above it and cancels the render if one exits ("parent_exited"); a detached job's
+    # launcher always exits (on Windows the WMI host does, about a minute and a half in), so turn that watch off for it
     if sys.platform == "win32":
         # cmd /c gives the job a console of its own (pnpm's shim exits at once without one); ShowWindow 0 hides it
-        cmdline = "cmd /c \"" + " ".join(f'"{x}"' for x in args) + f' > "{out}" 2>&1"'
+        cmdline = ("cmd /c \"set HYPERFRAMES_RENDER_DETACHED=1&& " + " ".join(f'"{x}"' for x in args)
+                   + f' > "{out}" 2>&1"')
         ps = ("$si = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ShowWindow=[uint16]0; "
               "CreateFlags=[uint32]16}; $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments "
               "@{CommandLine=$env:VIS_CMD; CurrentDirectory=$env:VIS_DIR; ProcessStartupInformation=$si}; "
@@ -127,8 +130,9 @@ def detach(argv, job):
         pid = int(pid)
     else:
         fh = open(out, "w")
+        env = {**__import__("os").environ, "HYPERFRAMES_RENDER_DETACHED": "1"}
         pid = subprocess.Popen(args, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT,
-                               start_new_session=True).pid
+                               start_new_session=True, env=env).pid
     meta.write_text(json.dumps({"pid": pid, "args": argv, "started": time.strftime("%Y-%m-%d %H:%M:%S")}), encoding="utf-8")
     print(f"started {job} as its own process (pid {pid}); output in renders/job-{job}.out")
     print("check it with python tools/render.py status, or python tools/render.py wait --minutes 25")
