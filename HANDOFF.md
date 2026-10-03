@@ -76,9 +76,15 @@ dev harness and tools behind the three an elegy visualizers), generalized to one
 - Icon: `.claude-plugin/icon.svg` (a warm light on a dark horizon, snow), simple placeholder until there's a real still to base it on.
 - A real worked example in the README (a short clip or still) once there's one to show.
 
-## Ready on branch v0.1.1-no-shell (not pushed)
+## v0.1.1 pushed (no-shell setup line)
 
-2026-10-02: the listing covers the Claude web and mobile apps, where the skill can't run. The branch adds a setup line
-telling Claude to say up front that it needs Claude Code on the person's computer, and bumps the version to 0.1.1.
-Held off main so the v0.1.0 review isn't disturbed; merge and push after approval. Same day, a fresh project from
-590c342 passed check_setup, analyze, build and a starter-scene still.
+2026-10-02: the listing covers the Claude web and mobile apps, where the skill can't run. The v0.1.1-no-shell branch
+added a setup line telling Claude to say up front that it needs Claude Code on the person's computer, and bumped the
+version to 0.1.1. Held off main so the v0.1.0 review wasn't disturbed. Same day, a fresh project from 590c342 passed
+check_setup, analyze, build and a starter-scene still.
+
+2026-10-03: a directory reviewer approved v0.1.0 (590c342); 3c5b9f7 also passed its scan. Neither is live yet: the
+page waits for an Anthropic reviewer, and Publish (not clicked) records the request. Merged the branch (b5d43ed),
+`claude plugin validate .` passed, pushed to main, branch deleted. "Check for new commits" was clicked and still
+showed "Checking…" several minutes later; v0.1.1 had not appeared on the Versions tab yet. Confirm it shows up and
+passes its scan.
