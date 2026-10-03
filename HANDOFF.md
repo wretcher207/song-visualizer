@@ -85,6 +85,6 @@ check_setup, analyze, build and a starter-scene still.
 
 2026-10-03: a directory reviewer approved v0.1.0 (590c342); 3c5b9f7 also passed its scan. Neither is live yet: the
 page waits for an Anthropic reviewer, and Publish (not clicked) records the request. Merged the branch (b5d43ed),
-`claude plugin validate .` passed, pushed to main, branch deleted. "Check for new commits" was clicked and still
-showed "Checking…" several minutes later; v0.1.1 had not appeared on the Versions tab yet. Confirm it shows up and
-passes its scan.
+`claude plugin validate .` passed, pushed to main, branch deleted. The directory detected v0.1.1 (b5d43ed) a few
+minutes later and its scan passed (with the same directory policy warnings as v0.1.0). Status: Approved, waiting
+for an Anthropic reviewer; nothing is live yet.
