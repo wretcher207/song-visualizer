@@ -38,7 +38,22 @@ ap.add_argument("--name", default=None)
 ap.add_argument("--final", action="store_true")
 ap.add_argument("--vertical", action="store_true")
 ap.add_argument("--ink", choices=["light", "dark"], default="light")
+ap.add_argument("--font", default=None, help="a TTF/OTF to use instead of fonts.thumbnail (candidates)")
+ap.add_argument("--wght", type=float, default=None, help="weight axis for a variable font (PIL sets it when FreeType can)")
+ap.add_argument("--step", type=float, default=0.88, help="line step as a share of --size (looser for handwriting)")
 a = ap.parse_args()
+if a.font:
+    FONT = str(project.path(a.font))
+
+
+def load_font(size):
+    f = ImageFont.truetype(FONT, size)
+    if a.wght is not None:
+        try:
+            f.set_variation_by_axes([a.wght])
+        except Exception:
+            pass
+    return f
 if a.ink == "dark":
     CREAM, AMBER, HALO = (40, 42, 50, 255), (186, 104, 28, 255), (250, 248, 242, 190)
 else:
@@ -51,10 +66,10 @@ if a.vertical:
     if not frame.exists():
         subprocess.run([sys.executable, "dev/shot.py", "--out", "thumb", "--aspect", "v", str(a.time)], cwd=track, check=True)
     img = Image.open(frame).convert("RGB")
-    big = ImageFont.truetype(FONT, a.size)
-    small = ImageFont.truetype(FONT, round(a.size * 0.3))
+    big = load_font(a.size)
+    small = load_font(round(a.size * 0.3))
     x0 = 84
-    ys = [a.top + i * round(a.size * 0.88) for i in range(len(a.lines))]
+    ys = [a.top + i * round(a.size * a.step) for i in range(len(a.lines))]
     lab_y = ys[-1] + round(a.size * 1.12)
 
     def draw_v(d, fill, off=(0, 0)):
@@ -86,9 +101,9 @@ cw, ch = int(W / a.punch), int(H / a.punch)
 x0 = W - cw
 img = src.crop((x0, 0, x0 + cw, ch)).resize((1920, 1080), Image.LANCZOS)
 
-big = ImageFont.truetype(FONT, a.size)
-small = ImageFont.truetype(FONT, round(a.size * 0.3))
-step = round(a.size * 0.88)
+big = load_font(a.size)
+small = load_font(round(a.size * 0.3))
+step = round(a.size * a.step)
 ys = [a.top + i * step for i in range(len(a.lines))]
 lab_y = ys[-1] + round(a.size * 1.12)
 

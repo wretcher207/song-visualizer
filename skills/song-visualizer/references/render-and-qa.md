@@ -79,6 +79,9 @@ python tools/thumbnail.py 190 "THE TITLE" --vertical --size 130 --top 170 --fina
 ```
 
 - Look at the phone copy at full pixel size in a few busy frames (grain and snow block first).
+- Thumbnails: `--font path.ttf` tries a face without changing `visualizer.json` (`--wght` for a variable font's weight,
+  `--step` for the line spacing of a loose handwriting face). Render three or four faces and look at them at the
+  `-phone` size before settling; a clean geometric sans over a dark picture reads as a label.
 - Thumbnails: pick a frame that reads at the size a feed shows it (look at the `-12pct` and `-phone` copies). Never
   crop the subject to fill the frame; at most a 1.15x punch-in. On a pale frame use `--ink dark`. The vertical cover
   keeps its title clear of the right-hand buttons and the bottom caption area.
