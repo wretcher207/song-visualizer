@@ -61,6 +61,11 @@ on one worker. Both only work if a frame depends on nothing but its time.
   WebGL canvas, Chrome moves it to the GPU path, every later 2D call gets 5 to 50 times slower on the software GPU, and
   that first frame rounds differently.
 - **Load images with `FILM.asset(url)`**: it holds the render until they arrive.
+- **A frame's time is the exact double (N - 1) / 24.** A render's first draw of frame N comes through the `hf-seek`
+  handler at that value (the GSAP tween's value, rounded to a microsecond, arrives second and hits the redraw guard).
+  A dev still shot at a time rounded to six decimals can differ from the render by a level in a few hundred pixels
+  of fast-moving detail. `dev/shot.py f<N>` shoots rendered frame N at its exact time; compare it with
+  `renders/<slug>-frames/frame_<N>.png` and expect zero difference.
 - **Test order independence:** `dev/frame.html?seq=90,30` renders 90 s then 30 s and shows the last; compare it with a
   plain 30 s still.
 

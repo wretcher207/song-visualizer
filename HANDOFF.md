@@ -12,6 +12,26 @@ anything that looks like sending data, one pair at a time. Cleared so far: `env`
 David chose free and public, a slimmed engine (2026-10-02). Extracted from `workspace/an-elegy` (the shared engine,
 dev harness and tools behind the three an elegy visualizers), generalized to one song per project.
 
+## 2026-10-06: what blue hour current taught (ported from `workspace/home/blue-hour-current`)
+
+The first project built on the kit with a WebGL2 scene SwiftShader could not run (a physically based water shader,
+`lib/water.js` there, not kit material). Changes, all proven on that build:
+
+- `tools/render.py chunks [--len 54]`: the film as consecutive windows assembled into the full frames directory,
+  because HyperFrames refuses to start a png-sequence render when the drive cannot hold its temporary copy of every
+  frame (54 GB for a 4.5 minute 1080p song; it wanted it up front). Resumes; seams measured flat; renders agree to the
+  pixel across runs and worker counts so patches stay exact.
+- `visualizer.json` `"gpu": "hardware"` → `--browser-gpu`. The GPU must be left alone during a render: one run that
+  overlapped dev stills came out two levels off on every frame with nothing in its log.
+- `render.py status` / `wait`: `tasklist /FI` came back empty for a live job; PowerShell `Get-Process` is the fallback.
+- `dev/shot.py f<N>`: shoots rendered frame N at its exact time, (N - 1) / 24 as a double. A time rounded to six
+  decimals drew frames a level off in a few hundred pixels; the render's first draw comes through `hf-seek` at the
+  exact value (the GSAP tween rounds to a microsecond and arrives second). With the exact time, 10 of 10 random
+  frames matched in both aspects. `dev/frame.html?via=gsap&off=&len=&lf=` drives the GSAP clock path for comparison
+  (`dev/gsap.min.js`, vendored). Query parameters become `window.VARIANT` on the dev page.
+- The hardware GPU is about 1.25 s a frame on an Intel HD 530 through HyperFrames' capture whatever the worker count
+  (the shader itself was 90 ms): plan on two hours per aspect for a 4.5 minute song.
+
 ## What's in it
 
 - `.claude-plugin/plugin.json` (v0.1.0, MIT, Dead Pixel Design) and `marketplace.json` (the repo is its own

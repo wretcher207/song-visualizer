@@ -27,8 +27,10 @@
         c.height = v ? 1920 : 1080;
         document.body.appendChild(c);
         window.FILM_BASE = "../"; // assets (FILM.asset) resolve from the project's root
+        window.VARIANT = Object.fromEntries(q.entries()); // review variants: dev/shot.py --q "k=v" (build.py --set k=v)
       })();
     </script>
+    <script src="gsap.min.js"></script>
 __SCRIPTS__
     <script>
       // Dev harness (generated from shared/dev/frame.template.html by tools/sync.py; do not edit the copy).
@@ -115,7 +117,22 @@ SPLIT ${parts}` : "");
           // render several times in this order and show the last: a frame must not depend on what came before
           for (const t of q.get("seq").split(",").map(Number)) FILM.render(t, true);
         } else {
+        if (q.get("via") === "gsap" && window.gsap) {
+          // the render pages' clock path: a GSAP tween from off to off + len over len seconds, sought to the local
+          // frame's time (HyperFrames seeks frameIndex / fps); the value the setter receives is what the scene draws
+          const off = Number(q.get("off") || 0), len = Number(q.get("len") || FILM.duration), lf = Number(q.get("lf") || 0);
+          let now = off;
+          const clock = {};
+          Object.defineProperty(clock, "t", { get() { return now; }, set(v) { now = v; } });
+          const tl = gsap.timeline({ paused: true });
+          tl.to(clock, { t: off + len, duration: len, ease: "none" }, 0);
+          clock.t = off;
+          tl.seek(lf / 24);
+          console.log("[clock] local " + (lf / 24).toPrecision(21) + " gsap " + now.toPrecision(21) + " direct " + (off + lf / 24).toPrecision(21));
+          FILM.render(now, true);
+        } else {
           FILM.render(Number(q.get("t") || 0), true);
+        }
         }
       } catch (e) {
         errors.push(String(e && e.stack ? e.stack : e));

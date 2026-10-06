@@ -5,6 +5,9 @@
   python tools/render.py window START LEN [--vertical] [--name NAME] [--set k=v ...] [--workers 4]
         a stretch of the song for real: renders/NAME-frames/, then dev/out/NAME.mp4 with the song from START.
         Gate B previews, motion tests, anything you want to watch with sound before an hour-long render
+  python tools/render.py chunks [--len 54] [--vertical] [--workers 4] [--no-encode]
+        the whole song as consecutive windows assembled into the full frames directory, for a drive that cannot hold
+        HyperFrames' temporary copy of every frame at once (it refuses to start a long render otherwise); resumes
   python tools/render.py full [--vertical] [--workers 4] [--no-encode]
         the whole song: renders/<slug>[-vertical]-frames/, then final/<slug>[-vertical].mp4 (CRF 14, the WAV as AAC)
   python tools/render.py patch START LEN [--vertical] [--force]
@@ -66,8 +69,12 @@ def run_render(args, cwd, log, want, out):
 
 
 def page_args(out, workers, comp=None):
+    # visualizer.json "gpu": "hardware" renders on the host GPU (the water shader needs it: SwiftShader has no WebGL2
+    # context at 1080p here, and the shader would take seconds a frame on it); the default is the software GPU
+    gpu = project.load().get("gpu", "software")
+    flag = "--browser-gpu" if gpu == "hardware" else "--no-browser-gpu"
     a = (["-c", comp] if comp else []) + ["-o", str(out), "--format", "png-sequence", "--fps", str(FPS),
-                                          "-w", str(workers), "--no-browser-gpu"]
+                                          "-w", str(workers), flag]
     return a
 
 
@@ -80,7 +87,7 @@ def encode(frames, out, start=0.0, crf=14):
                     "--crf", str(crf)], check=True)
 
 
-def window(c, start, length, vertical, name, sets, workers):
+def window(c, start, length, vertical, name, sets, workers, preview=True):
     pv = ROOT / "preview.html"
     build("--preview", str(start), str(length), *(["--vertical"] if vertical else []), *sum((["--set", s] for s in sets), []))
     out = frames_dir(c, vertical, name)
@@ -89,16 +96,64 @@ def window(c, start, length, vertical, name, sets, workers):
                    expected(min(length, project.duration(project.song(c)) - start)), out)
     finally:
         pv.unlink(missing_ok=True)  # a second root fails HyperFrames' check; never leave it behind
+    if not preview:
+        return out, None
     mp4 = ROOT / "dev" / "out" / f"{name}.mp4"
     mp4.parent.mkdir(parents=True, exist_ok=True)
     encode(out, mp4, start, crf=18)
     return out, mp4
 
 
+def chunks(c, length, vertical, workers):
+    """The whole song as consecutive windows of `length` seconds, assembled into the full frames directory with the
+    numbering a full render would give (frame_000001.png at 0 s). HyperFrames keeps every captured frame of a render in
+    temporary storage before it writes the sequence and refuses to start when the drive could not hold all of them at
+    their uncompressed size (8.3 MB a frame at 1080p), so a long song on a tight drive renders in windows. Each window
+    is rendered exactly as `window` renders it (the same page, offset), and renders here are deterministic across runs
+    and worker counts (proven on this project: 139 to 141 s, four runs, every frame identical), so the seams are
+    exact. A window whose frames are already complete is skipped, so a stopped job resumes."""
+    dur = project.duration(project.song(c))
+    full = frames_dir(c, vertical)
+    tag = "-vertical" if vertical else ""
+    n = math.ceil(dur / length - 1e-9)
+    done = []
+    for i in range(n):
+        start = i * length
+        ln = min(length, dur - start)
+        name = f"chunk{tag}-{i:02d}"
+        out = frames_dir(c, vertical, name)
+        want = expected(ln)
+        if out.exists() and len(list(out.glob("*.png"))) == want:
+            print(f"{name}: {want} frames already there, skipped")
+        else:
+            window(c, start, ln, vertical, name, [], workers, preview=False)
+        done.append((start, out))
+    full.mkdir(parents=True, exist_ok=True)
+    moved = 0
+    for start, out in done:
+        f0 = round(start * FPS)
+        for k, png in enumerate(sorted(out.glob("*.png"))):
+            dst = full / f"frame_{f0 + k + 1:06d}.png"
+            png.replace(dst)
+            moved += 1
+        shutil.rmtree(out, ignore_errors=True)
+    got = len(list(full.glob("*.png")))
+    want = expected(dur)
+    if got != want:
+        sys.exit(f"assembled {got} frames, expected {want}: see renders/chunk{tag}-*.log")
+    print(f"assembled {got} frames from {n} windows -> {full.relative_to(ROOT)}")
+    return full
+
+
 def alive(pid):
     if sys.platform == "win32":
+        # tasklist's filter has come back empty for a live process here; ask PowerShell when it does
         p = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True)
-        return str(pid) in p.stdout
+        if str(pid) in p.stdout:
+            return True
+        q = subprocess.run(["powershell", "-NoProfile", "-Command", f"(Get-Process -Id {pid} -ErrorAction SilentlyContinue) -ne $null"],
+                           capture_output=True, text=True)
+        return q.stdout.strip().lower() == "true"
     try:
         import os
         os.kill(pid, 0)
@@ -163,7 +218,8 @@ def jobs():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["check", "window", "full", "patch", "encode", "status", "wait"])
+    ap.add_argument("mode", choices=["check", "window", "full", "chunks", "patch", "encode", "status", "wait"])
+    ap.add_argument("--len", type=float, default=54, help="chunks: seconds per window (default 54)")
     ap.add_argument("--detach", action="store_true")
     ap.add_argument("--minutes", type=float, default=25)
     ap.add_argument("times", nargs="*", type=float)
@@ -180,7 +236,7 @@ def main():
     tag = "-vertical" if a.vertical else ""
     final = ROOT / "final" / f"{c['slug']}{tag}.mp4"
 
-    if a.detach and a.mode in ("full", "window"):
+    if a.detach and a.mode in ("full", "window", "chunks"):
         argv = [x for x in sys.argv[1:] if x != "--detach"]
         job = a.mode + tag + (f"-{a.times[0]:g}" if a.mode == "window" else "")
         detach(argv, job)
@@ -223,6 +279,16 @@ def main():
         dur = project.duration(project.song(c))
         out = frames_dir(c, a.vertical)
         run_render(page_args(out, a.workers), cwd, ROOT / "renders" / f"full{tag}.log", expected(dur), out)
+        if not a.no_encode:
+            final.parent.mkdir(exist_ok=True)
+            encode(out, final)
+            print(f"{final.relative_to(ROOT)}: QA it with python tools/qa.py {final.relative_to(ROOT)}")
+        return
+
+    if a.mode == "chunks":
+        (ROOT / "preview.html").unlink(missing_ok=True)
+        build()
+        out = chunks(c, a.len, a.vertical, a.workers)
         if not a.no_encode:
             final.parent.mkdir(exist_ok=True)
             encode(out, final)

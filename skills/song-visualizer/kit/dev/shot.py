@@ -83,8 +83,11 @@ def main():
     ap.add_argument("--split", action="store_true", help="with --perf: time each stage (FILM.mark)")
     ap.add_argument("--crop", default=None, help="with --strip: x,y,w,h of the frame shown in each tile")
     ap.add_argument("--q", default="", help="extra query for the scene (review variants), e.g. fig=hood")
-    ap.add_argument("times", nargs="+", type=float)
+    ap.add_argument("times", nargs="+", help="song times in seconds, or f<N> for rendered frame N (frame_<N>.png: t = (N - 1) / 24)")
     a = ap.parse_args()
+    # A frame's time must reach the scene as the exact double the render used ((N - 1) / 24, the hf-seek path): a time
+    # rounded to six decimals draws a frame that differs by a level in a few hundred pixels. f<N> gives it exactly.
+    a.times = [(int(x[1:]) - 1) / 24 if x.startswith("f") else float(x) for x in a.times]
     vert = a.aspect == "v"
     W, H = (1080, 1920) if vert else (1920, 1080)
     asp = ("&aspect=v" if vert else "") + (("&" + a.q) if a.q else "")
@@ -122,7 +125,7 @@ def main():
     else:
         for t in a.times:
             png = out / f"frame_{a.aspect}_{t:07.3f}.png"
-            shoot(f"t={t:.6f}{asp}", str(png), W, H, a.gpu)
+            shoot(f"t={t!r}{asp}", str(png), W, H, a.gpu)  # full precision: a frame time like 232/24 rounded to six places drew a different frame
             print(png)
             if a.small:
                 print(small_copy(png, a.small))

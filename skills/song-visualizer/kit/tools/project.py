@@ -6,6 +6,8 @@
     "artist": "the artist",
     "song": "audio/my-song.wav",        the master WAV (relative to the project, or absolute)
     "bg": "#0b0d12",                    the page colour behind the canvas
+    "gpu": "software",                  "hardware" renders on the host GPU (--browser-gpu): for a scene SwiftShader
+                                        cannot run; prove determinism first (render-and-qa.md) and give it the GPU alone
     "scenes": ["scenes/main.js"],       scene scripts, in load order (after the engine, features and cues)
     "lib": [],                          extra lib scripts a scene needs (e.g. "lib/endtype.js" is added on its own)
     "fonts": {

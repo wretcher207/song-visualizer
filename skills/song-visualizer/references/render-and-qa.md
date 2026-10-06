@@ -10,11 +10,24 @@
 
 ## Rendering
 
+A render on the host GPU (`--browser-gpu`, for a scene that needs it) must have the GPU to itself: a run that overlapped
+dev-harness stills came out with a uniform two-level tone shift on every frame and nothing in its log to show for it,
+while three clean runs matched the dev still to the pixel. Shoot nothing while it renders, and afterwards diff a few
+rendered frames against fresh dev stills at the same times (all must match exactly) and plot mean luma per frame for
+steps or a sawtooth.
+
 ```bash
 python tools/render.py full --detach                # renders/<slug>-frames/, then final/<slug>.mp4
 python tools/render.py wait --minutes 25            # repeat until it exits 0; it prints progress each time
 python tools/render.py full --vertical --detach     # then the vertical, the same way
+python tools/render.py chunks --detach              # the same film as consecutive 54 s windows, assembled: for a drive
+                                                    # that cannot hold HyperFrames' temporary copy of every frame (it
+                                                    # refuses to start otherwise); resumes a stopped job; seams exact
 ```
+
+`visualizer.json` `"gpu": "hardware"` makes every render use the host GPU, for a scene SwiftShader cannot run (a
+WebGL2 water shader, say). Prove it first: render a short window twice with different worker counts and require every
+frame identical, and compare a rendered frame with `dev/shot.py --gpu hw f<N>`.
 
 Always `--detach` a full render. An agent's background commands can be stopped after a time limit (30 minutes was
 seen), a full render runs an hour or more, and when a render's parent process is stopped, HyperFrames cancels the
