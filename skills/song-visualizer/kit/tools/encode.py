@@ -45,4 +45,13 @@ if a.wav:
     cmd += ["-c:a", "aac", "-b:a", "320k", "-shortest"]
 cmd += [a.out]
 subprocess.run(cmd, check=True)
-print(f"{a.out}: {len(pngs)} frames at {a.fps} fps" + (f" + {a.wav} from {a.start:.3f} s" if a.wav else ""))
+# ffmpeg can stop reading the PNGs partway (it logged "Error during demuxing: Cannot allocate memory" on a busy box,
+# 2026-10-07) and still exit 0 with a short file, so count what was written. With audio, -shortest can drop the last
+# frame; anything shorter is a failed encode.
+p = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets", "-show_entries",
+                    "stream=nb_read_packets", "-of", "csv=p=0", a.out], capture_output=True, text=True)
+got = int(p.stdout.strip() or 0)
+if got < len(pngs) - (1 if a.wav else 0):
+    pathlib.Path(a.out).unlink(missing_ok=True)
+    sys.exit(f"encode FAILED: {a.out} has {got} of {len(pngs)} frames (removed); run it again")
+print(f"{a.out}: {got} of {len(pngs)} frames at {a.fps} fps" + (f" + {a.wav} from {a.start:.3f} s" if a.wav else ""))

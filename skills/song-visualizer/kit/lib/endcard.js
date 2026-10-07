@@ -13,7 +13,9 @@
       for (let i = 1; i < c.length; i++) ctx.lineTo(c[i][0], c[i][1]);
       ctx.closePath();
     }
-    ctx.fill("evenodd");
+    // nonzero, not evenodd: a variable font's outlines overlap where strokes meet (the t's crossing, the A's bar),
+    // and evenodd punches a hole wherever two contours cover the same pixels
+    ctx.fill("nonzero");
     ctx.restore();
   }
   // o: { t0 (when it starts to come up), fade (s), cx, y (the artist line's baseline, px), width (the artist line's

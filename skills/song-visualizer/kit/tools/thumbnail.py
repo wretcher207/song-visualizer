@@ -41,6 +41,8 @@ ap.add_argument("--ink", choices=["light", "dark"], default="light")
 ap.add_argument("--font", default=None, help="a TTF/OTF to use instead of fonts.thumbnail (candidates)")
 ap.add_argument("--wght", type=float, default=None, help="weight axis for a variable font (PIL sets it when FreeType can)")
 ap.add_argument("--step", type=float, default=0.88, help="line step as a share of --size (looser for handwriting)")
+ap.add_argument("--left", type=int, default=84, help="--vertical: the title's left edge (move it clear of a frame edge)")
+ap.add_argument("--gap", type=float, default=1.12, help="label baseline below the last line, as a share of --size (more for a deep descender)")
 a = ap.parse_args()
 if a.font:
     FONT = str(project.path(a.font))
@@ -68,9 +70,9 @@ if a.vertical:
     img = Image.open(frame).convert("RGB")
     big = load_font(a.size)
     small = load_font(round(a.size * 0.3))
-    x0 = 84
+    x0 = a.left
     ys = [a.top + i * round(a.size * a.step) for i in range(len(a.lines))]
-    lab_y = ys[-1] + round(a.size * 1.12)
+    lab_y = ys[-1] + round(a.size * a.gap)
 
     def draw_v(d, fill, off=(0, 0)):
         for ln, y in zip(a.lines, ys):
@@ -105,7 +107,7 @@ big = load_font(a.size)
 small = load_font(round(a.size * 0.3))
 step = round(a.size * a.step)
 ys = [a.top + i * step for i in range(len(a.lines))]
-lab_y = ys[-1] + round(a.size * 1.12)
+lab_y = ys[-1] + round(a.size * a.gap)
 
 
 def draw_text(d, fill, off=(0, 0)):
