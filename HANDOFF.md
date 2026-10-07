@@ -30,7 +30,8 @@ out-of-order test caught it first; the same-frame test showed that any earlier d
   and 9:16 (`--order 150 20 112`). With an uncleared canvas planted in the scene: drawn only before 60 s, `seq=90,30`
   passed (0) and `seq=30,30` failed (609,143 pixels, up to 46 levels); drawn every frame, both failed. `claude plugin
   validate .` passes.
-- Committed to main, not pushed: David's call (the directory listing tracks main with auto-publish on).
+- Shipped as v0.1.2, pushed to main on David's word (2026-10-06), together with the blue hour current changes below.
+  The directory checks main about every 6 h; its scan of v0.1.2 shows on the plugin page.
 
 ## 2026-10-06: what blue hour current taught (ported from `workspace/home/blue-hour-current`)
 
@@ -54,7 +55,7 @@ The first project built on the kit with a WebGL2 scene SwiftShader could not run
 
 ## What's in it
 
-- `.claude-plugin/plugin.json` (v0.1.0, MIT, Dead Pixel Design) and `marketplace.json` (the repo is its own
+- `.claude-plugin/plugin.json` (v0.1.2, MIT, Dead Pixel Design) and `marketplace.json` (the repo is its own
   marketplace: `/plugin marketplace add wretcher207/song-visualizer`, then `/plugin install song-visualizer@song-visualizer`).
   `claude plugin validate .` passes; `claude -p --plugin-dir .` lists the skill as `song-visualizer:song-visualizer`.
 - `skills/song-visualizer/SKILL.md`: the workflow (set up, brief, measure, build, Gate A, Gate B, full build) and the
