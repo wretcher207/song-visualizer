@@ -74,6 +74,22 @@ in `engine.md`. Patch the vertical the same way (`--vertical`); its changed fram
 
 If the fix landed while a render was already running, that render has the old code: let it finish, then patch it.
 
+When the frames are gone (cleared after QA), splice instead of rendering the film again. Find the master's keyframes
+(`ffprobe -select_streams v:0 -show_entries packet=pts_time,flags -of csv=p=0 final/<slug>.mp4`, the rows with `K`;
+frame = round(pts_time × 24)), pick the last keyframe at or before the first changed frame (and, for a fix mid-film,
+the first keyframe after the last changed one), render exactly that stretch, and splice it in:
+
+```bash
+python tools/render.py window 147.5 9.74 --name endfix          # START = keyframe / 24, to the end of the song
+python tools/splice.py --seg 3540:end:renders/endfix-frames     # or START:END for a stretch mid-film; --vertical
+```
+
+The kept stretches are stream-copied, so they stay the master's own frames; the tool proves it with per-frame MD5s,
+checks the frame numbers run on with no gap at a join, and checks the new stretch lines up with its PNGs (offset 0, not
+one frame off). It writes `final/<slug>.spliced.mp4`; QA that, look at the changed stretch's contact sheets, then move
+the old master to `final/superseded/` and the spliced one into its place. Before trusting a window, compare its first
+frames (before the fix shows) with the old master: they should differ only by the encode.
+
 ## Deliverables
 
 ```bash
@@ -89,7 +105,8 @@ python tools/thumbnail.py 190 "THE TITLE" --vertical --size 130 --top 170 --fina
   `-phone` size before settling; a clean geometric sans over a dark picture reads as a label.
 - Thumbnails: pick a frame that reads at the size a feed shows it (look at the `-12pct` and `-phone` copies). Never
   crop the subject to fill the frame; at most a 1.15x punch-in. On a pale frame use `--ink dark`. The vertical cover
-  keeps its title clear of the right-hand buttons and the bottom caption area.
+  keeps its title clear of the right-hand buttons and the bottom caption area; `--left` moves its title off a frame
+  edge (a window frame, a door), and `--gap` drops the small label line clear of a deep descender (an italic g).
 
 ## The cut page and cleanup
 
