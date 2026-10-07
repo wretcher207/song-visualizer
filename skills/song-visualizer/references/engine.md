@@ -51,6 +51,14 @@ on one worker. Both only work if a frame depends on nothing but its time.
 
 - **No clocks, no `Math.random`, no state carried between frames.** Seed everything (`LOOK.rng(seed)`). Anything that
   accumulates over time (a snow clock, growth) is a table built once in `init` and sampled at `t`.
+- **Clear or overwrite every canvas you draw into each frame.** A canvas you make in `init` and draw into on every
+  frame (a layer to blur or tint, a scratch buffer) keeps the last frame's pixels, and they show through each gap and
+  soft edge you draw over them. One scene painted its sky into a canvas it reused, and the last frame showed between
+  the strokes. Start each frame with `setTransform(1, 0, 0, 1, 0, 0)` and a `clearRect` of the whole canvas, or an
+  opaque fill at alpha 1 in source-over, and set the alpha, blend mode and filter you draw with: the context keeps
+  those between frames too. Clear a WebGL canvas of your own with `gl.clear` each frame (SNOW and MEDIA clear theirs).
+  The frame's own canvas counts. The engine resets its transform, alpha, blend mode and filter but keeps its pixels,
+  so start a scene with an opaque picture over the whole frame, as the starter scene does with its sky.
 - **Hard edges on whole pixels.** A fill that stops at y = 669.6 leaves a half-covered row, and the first frames after
   a page loads blend that row slightly differently from later ones. A patch window then won't match the full render.
   `Math.round` layout edges.
@@ -67,7 +75,9 @@ on one worker. Both only work if a frame depends on nothing but its time.
   of fast-moving detail. `dev/shot.py f<N>` shoots rendered frame N at its exact time; compare it with
   `renders/<slug>-frames/frame_<N>.png` and expect zero difference.
 - **Test order independence:** `dev/frame.html?seq=90,30` renders 90 s then 30 s and shows the last; compare it with a
-  plain 30 s still.
+  plain 30 s still. Then compare `seq=30,30` (the same frame twice on one load) with the same still: the draw before is
+  its one difference from a fresh page, so it catches anything a frame leaves behind, including a canvas the 90 s
+  frame left alone. `python dev/shot.py --order 90 30` runs both and prints how many pixels differ; expect 0.
 
 ## Speed
 

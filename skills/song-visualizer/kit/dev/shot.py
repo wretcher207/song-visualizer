@@ -5,6 +5,9 @@
       --crop x,y,w,h                                   each tile shows that region of the frame (a walk cycle)
   python dev/shot.py --out NAME --sheet 0 60 5           contact sheet: one frame every 5 s from 0 to 60, 6 columns
   python dev/shot.py --perf 10 20 40                     ms per frame (whole frame, flushed), prints the GPU
+  python dev/shot.py --order 90 30                       order tests: 30 s drawn after 90 s, and 30 s twice on one
+                                                         load, each against a plain 30 s still (the last time is the
+                                                         one tested); prints how many pixels differ, exits 1 if any
   options: --aspect v (1080x1920)   --gpu sw|hw (SwiftShader, the render default | the hardware GPU)
            --q "fig=hood&x=1" (extra query for the scene: review variants)
            --small 640 (also write a copy scaled to that width, for the 640 px read test)
@@ -69,12 +72,47 @@ def small_copy(png, width):
     return out
 
 
+def order(times, out, asp, aspect, W, H, gpu):
+    """The order tests. A render draws nearly every frame after another one on the same page, and a plain still is a
+    page's first draw, so the last time is drawn after the others (seq=90,30) and after itself (seq=30,30), and each
+    must match a plain still at that time to the pixel. Returns how many failed."""
+    import numpy as np
+    from PIL import Image
+    *before, t = times
+    s = lambda x: f"{x:.3f}".rstrip("0").rstrip(".")
+    print(f"order tests at {s(t)} s ({'9:16' if aspect == 'v' else '16:9'}), stills in {out}")
+    plain = out / f"plain_{aspect}_{t:07.3f}.png"
+    shoot(f"t={t!r}{asp}", str(plain), W, H, gpu)
+    tests = [(f"{s(t)} s twice on one load", [t, t])]
+    if before:
+        tests.insert(0, (f"{s(t)} s after {', '.join(s(x) for x in before)} s", before + [t]))
+    else:
+        print("  one time given: the same-frame test only (for the other, list frames to draw first: --order 90 30)")
+    ref = np.asarray(Image.open(plain).convert("RGB"), np.int16)
+    failed = 0
+    for name, seq in tests:
+        png = out / f"seq_{aspect}_{'_'.join(f'{x:07.3f}' for x in seq)}.png"
+        shoot("seq=" + ",".join(repr(x) for x in seq) + asp, str(png), W, H, gpu)
+        d = np.abs(np.asarray(Image.open(png).convert("RGB"), np.int16) - ref).max(axis=2)
+        n = int((d > 0).sum())
+        if not n:
+            print(f"  {name}: 0 pixels differ")
+            continue
+        failed += 1
+        heat = png.with_name("diff_" + png.name)
+        Image.fromarray(np.clip(d * 8, 0, 255).astype(np.uint8)).save(heat)
+        print(f"  {name}: {n:,} pixels differ, up to {int(d.max())} levels; where: {heat} (levels x 8)")
+    return failed
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default="perf")
+    ap.add_argument("--out", default=None, help="dev/out/NAME/ (default: perf, or order with --order)")
     ap.add_argument("--strip", action="store_true")
     ap.add_argument("--sheet", action="store_true")
     ap.add_argument("--perf", action="store_true")
+    ap.add_argument("--order", action="store_true", help="the last time drawn after the others, and twice on one load, "
+                    "each against a plain still at that time")
     ap.add_argument("--aspect", default="h", choices=["h", "v"])
     ap.add_argument("--gpu", default="sw", choices=["sw", "hw"])
     ap.add_argument("--cols", type=int, default=0)
@@ -91,9 +129,13 @@ def main():
     vert = a.aspect == "v"
     W, H = (1080, 1920) if vert else (1920, 1080)
     asp = ("&aspect=v" if vert else "") + (("&" + a.q) if a.q else "")
-    out = ROOT / "dev" / "out" / a.out
+    out = ROOT / "dev" / "out" / (a.out or ("order" if a.order else "perf"))
     out.mkdir(parents=True, exist_ok=True)
-    if a.perf:
+    if a.order:
+        failed = order(a.times, out, asp, a.aspect, W, H, a.gpu)
+        if failed:
+            sys.exit(f"{failed} order test(s) failed: this frame depends on what the page drew before it")
+    elif a.perf:
         t0, t1, n = a.times
         dom = shoot(f"perf={t0},{t1},{int(n)}{asp}{'&split' if a.split else ''}", None, W, H, a.gpu, dump=True)
         m = re.search(r"<pre id=\"perf\">([^<]*)", dom or "")

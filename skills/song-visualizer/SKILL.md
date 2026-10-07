@@ -92,11 +92,11 @@ Look at every contact sheet, then put it on a page with any calls you made. Appl
 
 ## 6. The full build
 
-`references/render-and-qa.md` is the checklist: motion strips across every cue, `render.py check`, the 16:9 then the
-vertical (one at a time: two renders at once only slow both), QA on every frame of both, fixes patched in with
-`render.py patch` instead of a re-render, `deliver.py` for the share and phone copies, `thumbnail.py` for the
-thumbnail and vertical cover, and a cut page with both films. Leave the rendered frames on disk until the person
-accepts the cut, then ask before deleting them (they're large: 8 to 16 GB per aspect).
+`references/render-and-qa.md` is the checklist: motion strips across every cue, the order tests, `render.py check`,
+the 16:9 then the vertical (one at a time: two renders at once only slow both), QA on every frame of both, fixes
+patched in with `render.py patch` instead of a re-render, `deliver.py` for the share and phone copies, `thumbnail.py`
+for the thumbnail and vertical cover, and a cut page with both films. Leave the rendered frames on disk until the
+person accepts the cut, then ask before deleting them (they're large: 8 to 16 GB per aspect).
 
 ## Rules that hold everywhere
 

@@ -6,7 +6,12 @@
    `lib/cues.js`. Things move on the cue, nothing pops, nothing jumps. Contrast-stretch a strip if a gradient might be
    banding.
 2. **Frame time:** `python dev/shot.py --perf` across the heaviest stretch. Under 250 ms a frame.
-3. **Check:** `python tools/render.py check` (and `--vertical`). Passes, no errors.
+3. **Order:** `python dev/shot.py --order 90 30` draws 30 s after 90 s on one page load and 30 s twice on another, and
+   compares each with a plain 30 s still. Every count must be 0. Run it at a few points across the song: at least one
+   in each scene and one in each stretch where a layer comes and goes, and in the vertical too (`--aspect v`). A
+   failure means a frame keeps something from the draw before it: see "Rules that keep every frame exact" in
+   `engine.md`.
+4. **Check:** `python tools/render.py check` (and `--vertical`). Passes, no errors.
 
 ## Rendering
 

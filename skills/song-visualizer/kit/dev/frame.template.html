@@ -39,6 +39,7 @@ __SCRIPTS__
       //     &crop=x,y,w,h                         each tile shows that region of the frame, scaled up
       //   frame.html?perf=10,20,40                ms per frame over 40 frames (each one flushed to the screen)
       //   frame.html?seq=90,30                    render 90 s then 30 s and show the last (order-independence test)
+      //   frame.html?seq=30,30                    render 30 s twice on one load: it must match a plain 30 s still too
       //   add &aspect=v for the vertical frame
       const q = new URLSearchParams(location.search);
       const stage = document.getElementById("stage");

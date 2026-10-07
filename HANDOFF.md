@@ -12,6 +12,26 @@ anything that looks like sending data, one pair at a time. Cleared so far: `env`
 David chose free and public, a slimmed engine (2026-10-02). Extracted from `workspace/an-elegy` (the shared engine,
 dev harness and tools behind the three an elegy visualizers), generalized to one song per project.
 
+## 2026-10-06: the same-frame order test (from `workspace/home/glow`)
+
+glow drew a painted sky into a town canvas it made in `init` and reused each frame without a clear, so the last frame
+showed between the sky's strokes. Against a plain still at 112 s, `seq=150,20,112` came out 85,335 pixels off (up to
+42 levels) and `seq=112,112` 96,668 (up to 29). After an opaque fill at the start of each frame, both came out 0. The
+out-of-order test caught it first; the same-frame test showed that any earlier draw on the page changed the frame.
+
+- `references/engine.md`: a rule to clear or overwrite every canvas a scene draws into each frame (the frame's own
+  included: the engine resets its transform, alpha, blend mode and filter and keeps its pixels), and `seq=T,T` next
+  to the order test.
+- `references/render-and-qa.md`: the order tests are item 3 before the render; SKILL.md's summary names them.
+- `dev/shot.py --order 90 30`: a plain 30 s still, then `seq=90,30` and `seq=30,30`, each on a fresh page load; prints
+  how many pixels differ, writes a heat map for a failure, exits 1 if any differ. One time runs the same-frame test
+  alone. `frame.template.html` lists `seq=30,30`.
+- Proven on a scratch project (the-glow.wav, the starter scene): 0 pixels in 16:9 (`--order 90 30`, `--order f1201`)
+  and 9:16 (`--order 150 20 112`). With an uncleared canvas planted in the scene: drawn only before 60 s, `seq=90,30`
+  passed (0) and `seq=30,30` failed (609,143 pixels, up to 46 levels); drawn every frame, both failed. `claude plugin
+  validate .` passes.
+- Committed to main, not pushed: David's call (the directory listing tracks main with auto-publish on).
+
 ## 2026-10-06: what blue hour current taught (ported from `workspace/home/blue-hour-current`)
 
 The first project built on the kit with a WebGL2 scene SwiftShader could not run (a physically based water shader,
