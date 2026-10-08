@@ -12,6 +12,28 @@ anything that looks like sending data, one pair at a time. Cleared so far: `env`
 David chose free and public, a slimmed engine (2026-10-02). Extracted from `workspace/an-elegy` (the shared engine,
 dev harness and tools behind the three an elegy visualizers), generalized to one song per project.
 
+## 2026-10-07: what the hometown films' eye pass taught (v0.1.3, from `workspace/home`)
+
+Four films built on the kit passed automatic QA, then an eye pass over every contact sheet found faults QA can't see.
+The kit-level ones:
+
+- `lib/endcard.js` fills nonzero. evenodd punched 3 to 5 px holes wherever a variable font's contours overlap (the
+  t's crossing, the A's bar, the e's), in every end card, on a card that holds still for seconds.
+- `tools/encode.py` counts the packets it wrote and fails (removing the file) when frames are missing. ffmpeg once
+  stopped reading the PNGs on "Error during demuxing: Cannot allocate memory" and still exited 0 with a 113-frame
+  master of a 5232-frame film.
+- `tools/splice.py` (new): fixes a stretch of a master once its PNG frames are gone. It renders nothing itself; you
+  render the stretch with `render.py window` from a keyframe of the master, and it stream-copies the rest, encodes the
+  new stretch with encode.py's settings, joins them with the master's audio, and proves the result (clean decode,
+  consecutive frame numbers, every kept frame's decoded MD5 equal to the master's, the new stretch aligned at offset 0).
+  Used on two films' end-card tails and a 9:16 stretch mid-film; `render-and-qa.md` says how to pick the keyframes.
+- `tools/review.py`: `film_rate` and `film_audio` at the top of a spec (an artifact version holds at most 256 MB; eight
+  films, 29.5 minutes, fit at 850k and 128k), and a cache of encoded film parts in `review/.film-cache/` so a rebuild
+  only encodes films that changed. `new_project.py` ignores the cache.
+- `tools/thumbnail.py --left` (the vertical cover's title off a frame edge) and `--gap` (the label below a deep
+  descender).
+- `claude plugin validate .` passes. Shipped as v0.1.3, pushed to main on David's word (2026-10-08).
+
 ## 2026-10-06: the same-frame order test (from `workspace/home/glow`)
 
 glow drew a painted sky into a town canvas it made in `init` and reused each frame without a clear, so the last frame
@@ -55,7 +77,7 @@ The first project built on the kit with a WebGL2 scene SwiftShader could not run
 
 ## What's in it
 
-- `.claude-plugin/plugin.json` (v0.1.2, MIT, Dead Pixel Design) and `marketplace.json` (the repo is its own
+- `.claude-plugin/plugin.json` (v0.1.3, MIT, Dead Pixel Design) and `marketplace.json` (the repo is its own
   marketplace: `/plugin marketplace add wretcher207/song-visualizer`, then `/plugin install song-visualizer@song-visualizer`).
   `claude plugin validate .` passes; `claude -p --plugin-dir .` lists the skill as `song-visualizer:song-visualizer`.
 - `skills/song-visualizer/SKILL.md`: the workflow (set up, brief, measure, build, Gate A, Gate B, full build) and the
