@@ -29,9 +29,11 @@ The spec (JSON):
   }
 Card kinds: "test" (Looks right / Needs work, the default) and calls (Agree / Change it). A page's files must each be
 under 15 MB to publish as an artifact, and one publish carries at most 64 MB: this script keeps clips under the first
-and splits the files into batches under the second.
+and splits the files into batches under the second. A whole artifact version holds at most 256 MB, which whole films
+at the default 1600k fill at about 20 minutes of film: for more, set "film_rate" (video, e.g. "850k") and
+"film_audio" (e.g. "128k") at the top of the spec. The script prints the page's total size.
 """
-import html, json, math, pathlib, shutil, subprocess, sys
+import hashlib, html, json, math, pathlib, shutil, subprocess, sys
 
 from PIL import Image
 
@@ -43,6 +45,7 @@ KIT = ROOT / "review" / "src"
 LIMIT = 15 * 1048576
 BATCH = 60 * 1048576
 PART = 24.0
+FILM_RATE, FILM_AUDIO = "1600k", "160k"  # whole films; a spec can set "film_rate" and "film_audio"
 esc = lambda s: html.escape(str(s), quote=True)  # noqa: E731
 
 
@@ -80,10 +83,34 @@ def probe_size(v):
     return s["width"], s["height"]
 
 
-def film(src, out, name, rate="1600k"):
+def film(src, out, name, rate="1600k", arate="160k"):
     """A whole cut at 720p in 24 s fragmented MP4 parts, two-pass at a fixed rate so each part stays small; the page's
-    player joins them with Media Source where the browser allows it, else plays them one after another."""
+    player joins them with Media Source where the browser allows it, else plays them one after another. The parts are
+    kept in review/.film-cache/ under the source's path, size and time and the rates, so building the page again only
+    encodes the films that changed."""
     src = project.path(src)
+    st0 = src.stat()
+    key = hashlib.sha1(f"{src.resolve()}|{st0.st_size}|{st0.st_mtime_ns}|{rate}|{arate}|{PART}".encode()).hexdigest()[:16]
+    cache = ROOT / "review" / ".film-cache" / key
+    if (cache / "meta.json").exists():
+        d = out / name
+        if d.exists():
+            shutil.rmtree(d)
+        shutil.copytree(cache / "parts", d)
+        shutil.copy2(cache / "poster.jpg", out / f"{name}-poster.jpg")
+        print(f"{name}: {src.name} from the film cache")
+        return json.loads((cache / "meta.json").read_text(encoding="utf-8"))
+    p = _film(src, out, name, rate, arate)
+    if cache.exists():
+        shutil.rmtree(cache)
+    cache.mkdir(parents=True)
+    shutil.copytree(out / name, cache / "parts")
+    shutil.copy2(out / f"{name}-poster.jpg", cache / "poster.jpg")
+    (cache / "meta.json").write_text(json.dumps(p), encoding="utf-8")
+    return p
+
+
+def _film(src, out, name, rate, arate):
     w, h = probe_size(src)
     W, H = (1280, 720) if w >= h else (720, 1280)
     d = out / name
@@ -99,7 +126,7 @@ def film(src, out, name, rate="1600k"):
     null = "NUL" if sys.platform == "win32" else "/dev/null"
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), *venc, "-pass", "1", "-an", "-f", "mp4", null], check=True)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), *venc, "-pass", "2", "-colorspace", "bt709",
-                    "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", "-c:a", "aac", "-b:a", "160k",
+                    "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", "-c:a", "aac", "-b:a", arate,
                     "-ar", "48000", str(full)], check=True)
     for f in out.glob(f"_{name}-2pass*"):
         f.unlink()
@@ -139,7 +166,7 @@ def media_html(card_id, items, out, M):
             figs.append(f'<figure{cls}><video{" class=" + chr(34) + "tall" + chr(34) if tall else ""} controls playsinline '
                         f'preload="metadata" poster="{M}/{name}-poster.jpg" src="{M}/{name}.mp4"></video>{cap}</figure>')
         elif "film" in it:
-            p = film(it["film"], out, name)
+            p = film(it["film"], out, name, it.get("rate", FILM_RATE), FILM_AUDIO)
             figs.append(f'<figure{cls}><div class="film" data-parts="{M}/{name}" data-n="{p["n"]}" data-len="{p["len"]}" '
                         f'data-dur="{p["dur"]}" data-codecs="{p["codecs"]}"><video{" class=" + chr(34) + "tall" + chr(34) if p["tall"] else ""} '
                         f'controls playsinline preload="metadata" poster="{M}/{name}-poster.jpg" aria-label="{esc(it.get("caption", name))}"></video>'
@@ -151,6 +178,9 @@ def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     spec = json.loads(project.path(sys.argv[1]).read_text(encoding="utf-8"))
+    global FILM_RATE, FILM_AUDIO
+    FILM_RATE = spec.get("film_rate", FILM_RATE)
+    FILM_AUDIO = spec.get("film_audio", FILM_AUDIO)
     name = spec["name"]
     M = f"media-{name}"
     out = ROOT / "review" / M

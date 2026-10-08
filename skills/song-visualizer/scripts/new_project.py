@@ -52,6 +52,7 @@ final/*.mp4
 final/qa_*/
 final/superseded/
 review/media*/
+review/.film-cache/
 __pycache__/
 """
 
