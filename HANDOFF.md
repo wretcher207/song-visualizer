@@ -151,3 +151,8 @@ page waits for an Anthropic reviewer, and Publish (not clicked) records the requ
 `claude plugin validate .` passed, pushed to main, branch deleted. The directory detected v0.1.1 (b5d43ed) a few
 minutes later and its scan passed (with the same directory policy warnings as v0.1.0). Status: Approved, waiting
 for an Anthropic reviewer; nothing is live yet.
+
+2026-10-17: every version from a637428 (Oct 6) to v0.1.3 was flagged "Ships code the scan can't read" because of the
+vendored minified `kit/dev/gsap.min.js`. v0.1.4 (73d7fda) loads GSAP 3.14.2 from jsDelivr instead; pushed with David's OK,
+and its scan passed ("ready to publish", same policy warnings). Still in content policy review; Publish on v0.1.4 not
+clicked. The only publish request on record is v0.1.1 (b4477fd, Oct 3).
