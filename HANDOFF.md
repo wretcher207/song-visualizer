@@ -154,5 +154,6 @@ for an Anthropic reviewer; nothing is live yet.
 
 2026-10-17: every version from a637428 (Oct 6) to v0.1.3 was flagged "Ships code the scan can't read" because of the
 vendored minified `kit/dev/gsap.min.js`. v0.1.4 (73d7fda) loads GSAP 3.14.2 from jsDelivr instead; pushed with David's OK,
-and its scan passed ("ready to publish", same policy warnings). Still in content policy review; Publish on v0.1.4 not
-clicked. The only publish request on record is v0.1.1 (b4477fd, Oct 3).
+and its scan passed ("ready to publish", same policy warnings). v0.1.4 has no Publish button: its
+page says "Waiting for a reviewer... nothing you need to do", and Publish shows "waits for the review to clear".
+The only publish request on record is v0.1.1 (b4477fd, Oct 3).
